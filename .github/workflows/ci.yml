@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Static analysis: ESLint, Prettier, TypeScript.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint & typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run typecheck
+
+  # ---------------------------------------------------------------------------
+  # Unit tests — pure domain + application, no DB.
+  # ---------------------------------------------------------------------------
+  test-unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx prisma generate
+      - run: npm test
+
+  # ---------------------------------------------------------------------------
+  # Integration tests — Testcontainers spins up postgres:16-alpine.
+  # GitHub-hosted Ubuntu runners ship with Docker daemon out of the box.
+  # ---------------------------------------------------------------------------
+  test-integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Verify Docker is available
+        run: docker version
+      - run: npm ci --no-audit --no-fund
+      - run: npx prisma generate
+      - name: Pre-pull postgres image (speed up first container start)
+        run: docker pull postgres:16-alpine
+      - run: npm run test:int
+
+  # ---------------------------------------------------------------------------
+  # Docker build smoke — ensures the production image still builds.
+  # ---------------------------------------------------------------------------
+  docker-build:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: [lint, test-unit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: notification-preferences:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

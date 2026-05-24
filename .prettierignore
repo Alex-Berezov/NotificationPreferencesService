@@ -1,0 +1,6 @@
+node_modules
+coverage
+dist
+**/*.md
+Dockerfile
+entrypoint.sh
