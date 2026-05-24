@@ -50,12 +50,6 @@ export const parseNotificationType = (v: unknown): NotificationType => {
   return v;
 };
 
-/** Derive transport channel from a NotificationType (suffix after first `_`). */
-export const channelOfType = (t: NotificationType): Channel => {
-  const idx = t.indexOf('_');
-  return t.slice(idx + 1) as Channel;
-};
-
 // ---------------------------------------------------------------------------
 // UserId — branded string, 1..256 chars, trimmed
 // ---------------------------------------------------------------------------

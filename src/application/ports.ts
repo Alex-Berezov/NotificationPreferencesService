@@ -23,10 +23,6 @@ export interface PolicyRepository {
   findApplicable(type: NotificationType, region: Region): Promise<GlobalPolicy[]>;
 }
 
-export interface Clock {
-  now(): Date;
-}
-
 export interface Logger {
   info(obj: Record<string, unknown>, msg?: string): void;
   warn(obj: Record<string, unknown>, msg?: string): void;
